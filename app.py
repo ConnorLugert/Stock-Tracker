@@ -26,10 +26,19 @@ if ticker_symbol:
     end_price = ticker_df.Close.iloc[-1]
     pct_change = ((end_price - start_price) / start_price) * 100
     
+# Calculate percentage change
+    start_price = ticker_df.Close.iloc[0]
+    end_price = ticker_df.Close.iloc[-1]
+    
+    # Calculate the dollar difference
+    delta_value = end_price - start_price
+    pct_change = (delta_value / start_price) * 100
+    
     # Display price and metric
-    st.write(f"### Closing Price for {ticker_symbol}")
+    # .upper() ensures the ticker is always CAPITALIZED
+    st.write(f"### Closing Price for {ticker_symbol.upper()}")
+    
+    # Display the current price as the value, and the dollar difference as the delta
     st.metric(label=f"Price Change ({selected_period})", 
               value=f"${end_price:.2f}", 
-              delta=f"{pct_change:.2f}%")
-              
-    st.line_chart(ticker_df.Close)
+              delta=f"${delta_value:.2f} ({pct_change:.2f}%)")
