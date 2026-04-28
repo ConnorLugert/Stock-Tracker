@@ -1,7 +1,7 @@
 import streamlit as st
 import yfinance as yf
 
-st.title("Simple Stock Price App")
+st.title("Stock Price App")
 
 ticker_symbol = st.text_input("Enter Ticker Symbol (e.g., AAPL, GOOGL):", "AAPL")
 
