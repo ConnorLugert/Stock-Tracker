@@ -55,18 +55,26 @@ if tickers:
     
 # 2. Charts
     if data_dict:
-        st.subheader("Price History")
-        st.line_chart(pd.DataFrame(data_dict))
+        import plotly.express as px
         
-        # Calculate MA DataFrame and drop empty values
+        st.subheader("Price History")
+        # px.line creates a Plotly chart which we can configure
+        fig1 = px.line(pd.DataFrame(data_dict))
+        # This removes the interactive toolbar (zoom, pan, etc.)
+        fig1.update_layout(dragmode=False) 
+        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
+        
+        # Calculate MA DataFrame
         ma_df = pd.DataFrame(ma_dict).dropna()
         
         st.subheader(f"{ma_window}-Day Moving Average")
         if not ma_df.empty:
-            st.line_chart(ma_df)
+            fig2 = px.line(ma_df)
+            fig2.update_layout(dragmode=False)
+            st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
         else:
-            st.warning(f"Not enough data to calculate a {ma_window}-day moving average for the selected time range. Try a longer time period.")
-        
+            st.warning(f"Not enough data for {ma_window}-day MA. Try a longer time period.")
+            
         # 3. Fundamental Table
         st.subheader("Fundamental Data")
         st.table(pd.DataFrame(fundamental_data).set_index("Ticker"))
