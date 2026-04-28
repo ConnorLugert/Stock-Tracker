@@ -1,12 +1,12 @@
 import streamlit as st
 import yfinance as yf
+import pandas as pd
 
-st.title("Stock Comparison App")
+st.title("Multi-Stock Comparison")
 
-# Layout: Two input columns
-col1, col2 = st.columns(2)
-ticker1 = col1.text_input("Ticker 1:", "AAPL").upper()
-ticker2 = col2.text_input("Ticker 2:", "MSFT").upper()
+# 1. Dynamic Input
+ticker_input = st.text_input("Enter tickers separated by commas:", "AAPL, MSFT").upper()
+tickers = [t.strip() for t in ticker_input.split(",") if t.strip()]
 
 period_map = {
     "1 Week": "5d", "1 Month": "1mo", "1 Year": "1y", 
@@ -14,25 +14,25 @@ period_map = {
 }
 selected_period = st.selectbox("Select time range:", list(period_map.keys()))
 
-if ticker1 and ticker2:
-    def get_stock_data(symbol, period):
-        data = yf.Ticker(symbol).history(period=period)
-        return data
-
-    df1 = get_stock_data(ticker1, period_map[selected_period])
-    df2 = get_stock_data(ticker2, period_map[selected_period])
-
-    # Display Metrics Side-by-Side
-    m1, m2 = st.columns(2)
-    for i, (df, ticker, col) in enumerate([(df1, ticker1, m1), (df2, ticker2, m2)]):
-        start = df.Close.iloc[0]
-        end = df.Close.iloc[-1]
-        delta = end - start
-        pct = (delta / start) * 100
-        col.metric(f"{ticker} Change", f"${end:.2f}", f"${delta:.2f} ({pct:.2f}%)")
-
-    # Combine data for the chart
-    import pandas as pd
-    combined_df = pd.DataFrame({ticker1: df1.Close, ticker2: df2.Close})
+if tickers:
+    data_dict = {}
     
-    st.line_chart(combined_df)
+    # 2. Fetch data for each ticker
+    for ticker in tickers:
+        df = yf.Ticker(ticker).history(period=period_map[selected_period])
+        if not df.empty:
+            data_dict[ticker] = df.Close
+            
+            # Show metrics
+            start = df.Close.iloc[0]
+            end = df.Close.iloc[-1]
+            delta = end - start
+            pct = (delta / start) * 100
+            st.metric(f"{ticker} Performance", f"${end:.2f}", f"${delta:.2f} ({pct:.2f}%)")
+    
+    # 3. Combine and Plot
+    if data_dict:
+        combined_df = pd.DataFrame(data_dict)
+        st.line_chart(combined_df)
+    else:
+        st.error("No data found for the entered tickers.")
