@@ -13,22 +13,32 @@ period_map = {
     "Year to Date": "ytd", "3 Years": "3y", "10 Years": "10y"
 }
 selected_period = st.selectbox("Select time range:", list(period_map.keys()))
-
-# Moving Average Input
 ma_window = st.number_input("Moving Average Window (days):", min_value=1, max_value=365, value=50)
 
 if tickers:
     data_dict = {}
     ma_dict = {}
     valid_tickers = []
+    fundamental_data = []
 
     for ticker in tickers:
-        df = yf.Ticker(ticker).history(period=period_map[selected_period])
+        t = yf.Ticker(ticker)
+        df = t.history(period=period_map[selected_period])
+        
         if not df.empty:
             data_dict[ticker] = df.Close
-            # Calculate Moving Average
             ma_dict[f"{ticker} MA"] = df.Close.rolling(window=ma_window).mean()
             valid_tickers.append(ticker)
+            
+            # Extract fundamental info
+            info = t.info
+            fundamental_data.append({
+                "Ticker": ticker,
+                "Market Cap": info.get("marketCap", "N/A"),
+                "P/E Ratio": info.get("trailingPE", "N/A"),
+                "52W High": info.get("fiftyTwoWeekHigh", "N/A"),
+                "Forward EPS": info.get("forwardEps", "N/A")
+            })
 
     # 1. Metrics (Row Logic)
     cols_per_row = 4
@@ -43,13 +53,15 @@ if tickers:
             with cols[j]:
                 st.metric(f"{ticker}", f"${end:.2f}", f"${delta:.2f} ({pct:.2f}%)")
     
-    # 2. Main Price Chart
+    # 2. Charts
     if data_dict:
         st.subheader("Price History")
         st.line_chart(pd.DataFrame(data_dict))
-        
-        # 3. Moving Average Chart
         st.subheader(f"{ma_window}-Day Moving Average")
         st.line_chart(pd.DataFrame(ma_dict))
+        
+        # 3. Fundamental Table
+        st.subheader("Fundamental Data")
+        st.table(pd.DataFrame(fundamental_data).set_index("Ticker"))
     else:
         st.error("No data found for the entered tickers.")
