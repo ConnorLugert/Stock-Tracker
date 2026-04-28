@@ -53,12 +53,19 @@ if tickers:
             with cols[j]:
                 st.metric(f"{ticker}", f"${end:.2f}", f"${delta:.2f} ({pct:.2f}%)")
     
-    # 2. Charts
+# 2. Charts
     if data_dict:
         st.subheader("Price History")
         st.line_chart(pd.DataFrame(data_dict))
+        
+        # Calculate MA DataFrame and drop empty values
+        ma_df = pd.DataFrame(ma_dict).dropna()
+        
         st.subheader(f"{ma_window}-Day Moving Average")
-        st.line_chart(pd.DataFrame(ma_dict))
+        if not ma_df.empty:
+            st.line_chart(ma_df)
+        else:
+            st.warning(f"Not enough data to calculate a {ma_window}-day moving average for the selected time range. Try a longer time period.")
         
         # 3. Fundamental Table
         st.subheader("Fundamental Data")
