@@ -1,38 +1,38 @@
 import streamlit as st
 import yfinance as yf
 
-st.title("Stock Price App")
+st.title("Stock Comparison App")
 
-ticker_symbol = st.text_input("Enter Ticker Symbol (e.g., AAPL, GOOGL):", "AAPL")
+# Layout: Two input columns
+col1, col2 = st.columns(2)
+ticker1 = col1.text_input("Ticker 1:", "AAPL").upper()
+ticker2 = col2.text_input("Ticker 2:", "MSFT").upper()
 
-if ticker_symbol:
-    period_map = {
-        "1 Week": "5d",
-        "1 Month": "1mo",
-        "1 Year": "1y",
-        "Year to Date": "ytd",
-        "3 Years": "3y",
-        "10 Years": "10y"
-    }
+period_map = {
+    "1 Week": "5d", "1 Month": "1mo", "1 Year": "1y", 
+    "Year to Date": "ytd", "3 Years": "3y", "10 Years": "10y"
+}
+selected_period = st.selectbox("Select time range:", list(period_map.keys()))
 
-    selected_period = st.selectbox("Select time range:", list(period_map.keys()))
+if ticker1 and ticker2:
+    def get_stock_data(symbol, period):
+        data = yf.Ticker(symbol).history(period=period)
+        return data
 
-    # Fetch data
-    ticker_data = yf.Ticker(ticker_symbol)
-    ticker_df = ticker_data.history(period=period_map[selected_period])
+    df1 = get_stock_data(ticker1, period_map[selected_period])
+    df2 = get_stock_data(ticker2, period_map[selected_period])
+
+    # Display Metrics Side-by-Side
+    m1, m2 = st.columns(2)
+    for i, (df, ticker, col) in enumerate([(df1, ticker1, m1), (df2, ticker2, m2)]):
+        start = df.Close.iloc[0]
+        end = df.Close.iloc[-1]
+        delta = end - start
+        pct = (delta / start) * 100
+        col.metric(f"{ticker} Change", f"${end:.2f}", f"${delta:.2f} ({pct:.2f}%)")
+
+    # Combine data for the chart
+    import pandas as pd
+    combined_df = pd.DataFrame({ticker1: df1.Close, ticker2: df2.Close})
     
-    # Calculate prices
-    start_price = ticker_df.Close.iloc[0]
-    end_price = ticker_df.Close.iloc[-1]
-    delta_value = end_price - start_price
-    pct_change = (delta_value / start_price) * 100
-    
-    # Display headers and metrics
-    st.write(f"### Closing Price for {ticker_symbol.upper()}")
-    
-    st.metric(label=f"Price Change ({selected_period})", 
-              value=f"${end_price:.2f}", 
-              delta=f"${delta_value:.2f} ({pct_change:.2f}%)")
-              
-    # Display the chart
-    st.line_chart(ticker_df.Close)
+    st.line_chart(combined_df)
