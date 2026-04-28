@@ -10,8 +10,8 @@ if ticker_symbol:
     period_map = {
         "1 Week": "5d",
         "1 Month": "1mo",
-        "1 Year": "1y",
-        "Year to Date": "ytd",
+        "Year to Date": "ytd",        
+        "1 Year": "1y",    
         "3 Years": "3y",
         "10 Years": "10y"
     }
