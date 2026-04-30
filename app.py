@@ -51,7 +51,6 @@ if tickers:
             if not daily_returns.empty:
                 # Annualize the risk-free rate to a daily rate
                 daily_rf = (1 + rf_rate)**(1/252) - 1
-                
                 excess_returns = daily_returns - daily_rf
                 sharpe = (excess_returns.mean() / excess_returns.std()) * np.sqrt(252) if excess_returns.std() != 0 else 0
             else:
@@ -67,10 +66,10 @@ if tickers:
                 "Div. Yield (%)": f"{info.get('dividendYield', 0) * 100:.2f}%" if info.get('dividendYield') else "0.00%",
                 "Profit Margin": f"{info.get('profitMargins', 0) * 100:.2f}%" if info.get('profitMargins') else "N/A",
                 "Price to Book": info.get("priceToBook", "N/A"),
+                "52W High": info.get("fiftyTwoWeekHigh", "N/A")
             })
 
     # 1. Metrics
     cols_per_row = 4
     for i in range(0, len(valid_tickers), cols_per_row):
-        ticker_chunk = valid_tickers[i : i + cols_per_row]
-        cols = st.columns(cols_per
+        ticker_chunk
