@@ -9,7 +9,6 @@ st.title("Multi-Stock Comparison")
 # --- Function to fetch Risk-Free Rate (3-Month T-Bill) ---
 def get_risk_free_rate():
     try:
-        # ^IRX is the ticker for 13-week (3-month) Treasury Bill yield
         t_bill = yf.Ticker("^IRX")
         current_yield = t_bill.history(period="1d")['Close'].iloc[-1]
         return current_yield / 100 
@@ -35,7 +34,6 @@ col_top1, col_top2 = st.columns([2, 1])
 with col_top1:
     selected_period = st.selectbox("Select time range:", list(period_map.keys()))
 with col_top2:
-    # Explicitly stating the Risk-Free Rate source and value
     st.info(f"**Risk-Free Rate:** {rf_rate*100:.2f}% \n\n (Based on 3-Month Treasury Bills)")
 
 if tickers:
@@ -55,4 +53,15 @@ if tickers:
             if not daily_returns.empty:
                 daily_rf = (1 + rf_rate)**(1/252) - 1
                 excess_returns = daily_returns - daily_rf
-                sharpe = (excess_returns.mean() / excess_returns.std()) * np.sqrt
+                # Fixed the calculation here:
+                sharpe = (excess_returns.mean() / excess_returns.std()) * np.sqrt(252) if excess_returns.std() != 0 else 0
+            else:
+                sharpe = 0
+
+            # Extract info
+            info = t.info
+            fundamental_data.append({
+                "Ticker": ticker,
+                "Sharpe Ratio": round(sharpe, 2),
+                "Sector": info.get("sector", "ETF/Other"),
+                "Market Cap": info.get("marketCap", "N/A
