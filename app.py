@@ -52,8 +52,7 @@ if tickers:
             pct = (delta / start) * 100
             with cols[j]:
                 st.metric(f"{ticker}", f"${end:.2f}", f"${delta:.2f} ({pct:.2f}%)")
-    
-# 2. Charts
+
 # 2. Charts
 if data_dict:
     import plotly.express as px
@@ -73,8 +72,13 @@ if data_dict:
     fig_norm = px.line(normalized_df, labels={"value": "Normalized Price (Base 100)", "Date": "Date"})
     fig_norm.update_layout(dragmode=False)
     st.plotly_chart(fig_norm, use_container_width=True, config={'displayModeBar': False})
-        # 3. Fundamental Table
-        st.subheader("Fundamental Data")
-        st.table(pd.DataFrame(fundamental_data).set_index("Ticker"))
-    else:
-        st.error("No data found for the entered tickers.")
+# ... (immediately after your normalized chart code)
+    st.plotly_chart(fig_norm, use_container_width=True, config={'displayModeBar': False})
+
+    # 3. Fundamental Table
+    # Ensure these two lines are aligned with the st.plotly_chart lines above!
+    st.subheader("Fundamental Data")
+    st.table(pd.DataFrame(fundamental_data).set_index("Ticker"))
+
+else:
+    st.error("No data found for the entered tickers.")
