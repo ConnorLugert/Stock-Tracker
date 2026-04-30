@@ -71,42 +71,42 @@ if tickers:
 
     # 1. Metrics
     cols_per_row = 4
-    for i in range(0, len(valid_tickers), cols_per_row):
-    ticker_chunk = valid_tickers[i : i + cols_per_row]
-        cols = st.columns(cols_per_row)
-        for j, ticker in enumerate(ticker_chunk):
-            ticker_series = data_dict[ticker]
-            start, end = ticker_series.iloc[0], ticker_series.iloc[-1]
-            delta = end - start
-            pct = (delta / start) * 100
-            with cols[j]:
-                st.metric(f"{ticker}", f"${end:.2f}", f"${delta:.2f} ({pct:.2f}%)")
-
-    # 2. Charts
-    if data_dict:
-        import plotly.express as px
-        df_prices = pd.DataFrame(data_dict)
-
-        st.subheader("Relative Performance (%)")
-        normalized_df = (df_prices / df_prices.iloc[0]) * 100
-        fig_norm = px.line(normalized_df, labels={"value": "Normalized Price (Base 100)", "Date": "Date"})
-        fig_norm.update_layout(dragmode=False, hovermode="x unified")
-        st.plotly_chart(fig_norm, use_container_width=True)
-
-        st.subheader("Portfolio Diversification")
-        fund_df = pd.DataFrame(fundamental_data)
-        sector_counts = fund_df['Sector'].value_counts().reset_index()
-        sector_counts.columns = ['Sector', 'Count']
-        fig_pie = px.pie(sector_counts, values='Count', names='Sector', hole=0.4)
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-        st.subheader("Price History")
-        fig1 = px.line(df_prices, labels={"value": "Price ($)", "Date": "Date"})
-        fig1.update_layout(dragmode=False, hovermode="x unified")
-        st.plotly_chart(fig1, use_container_width=True)
-
-        # 3. Fundamental Table
-        st.subheader("Fundamental Data & Risk Metrics")
-        st.table(fund_df.set_index("Ticker"))
-else:
-    st.error("No data found for the entered tickers.")
+        for i in range(0, len(valid_tickers), cols_per_row):
+        ticker_chunk = valid_tickers[i : i + cols_per_row]
+            cols = st.columns(cols_per_row)
+            for j, ticker in enumerate(ticker_chunk):
+                ticker_series = data_dict[ticker]
+                start, end = ticker_series.iloc[0], ticker_series.iloc[-1]
+                delta = end - start
+                pct = (delta / start) * 100
+                with cols[j]:
+                    st.metric(f"{ticker}", f"${end:.2f}", f"${delta:.2f} ({pct:.2f}%)")
+    
+        # 2. Charts
+        if data_dict:
+            import plotly.express as px
+            df_prices = pd.DataFrame(data_dict)
+    
+            st.subheader("Relative Performance (%)")
+            normalized_df = (df_prices / df_prices.iloc[0]) * 100
+            fig_norm = px.line(normalized_df, labels={"value": "Normalized Price (Base 100)", "Date": "Date"})
+            fig_norm.update_layout(dragmode=False, hovermode="x unified")
+            st.plotly_chart(fig_norm, use_container_width=True)
+    
+            st.subheader("Portfolio Diversification")
+            fund_df = pd.DataFrame(fundamental_data)
+            sector_counts = fund_df['Sector'].value_counts().reset_index()
+            sector_counts.columns = ['Sector', 'Count']
+            fig_pie = px.pie(sector_counts, values='Count', names='Sector', hole=0.4)
+            st.plotly_chart(fig_pie, use_container_width=True)
+    
+            st.subheader("Price History")
+            fig1 = px.line(df_prices, labels={"value": "Price ($)", "Date": "Date"})
+            fig1.update_layout(dragmode=False, hovermode="x unified")
+            st.plotly_chart(fig1, use_container_width=True)
+    
+            # 3. Fundamental Table
+            st.subheader("Fundamental Data & Risk Metrics")
+            st.table(fund_df.set_index("Ticker"))
+    else:
+        st.error("No data found for the entered tickers.")
