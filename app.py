@@ -53,13 +53,12 @@ if tickers:
             else:
                 sharpe = 0
 
-            # Extract info including Sector/Industry
+            # Extract info
             info = t.info
             fundamental_data.append({
                 "Ticker": ticker,
                 "Sharpe Ratio": round(sharpe, 2),
                 "Sector": info.get("sector", "ETF/Other"),
-                "Industry": info.get("industry", "N/A"),
                 "Market Cap": info.get("marketCap", "N/A"),
                 "P/E Ratio": info.get("trailingPE", "N/A"),
                 "Div. Yield (%)": f"{info.get('dividendYield', 0) * 100:.2f}%" if info.get('dividendYield') else "0.00%",
@@ -83,14 +82,29 @@ if tickers:
         import plotly.express as px
         df_prices = pd.DataFrame(data_dict)
 
+        # Relative Performance
         st.subheader("Relative Performance (%)")
         normalized_df = (df_prices / df_prices.iloc[0]) * 100
         fig_norm = px.line(normalized_df, labels={"value": "Normalized Price (Base 100)", "Date": "Date"})
         fig_norm.update_layout(dragmode=False, hovermode="x unified")
         st.plotly_chart(fig_norm, use_container_width=True)
 
-        # New: Sector Breakdown Chart
+        # Diversification Chart
         st.subheader("Portfolio Diversification")
         fund_df = pd.DataFrame(fundamental_data)
         sector_counts = fund_df['Sector'].value_counts().reset_index()
-        fig_pie = px.pie(sector_counts, values='count', names='Sector', hole
+        sector_counts.columns = ['Sector', 'Count']
+        fig_pie = px.pie(sector_counts, values='Count', names='Sector', hole=0.4)
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+        # Raw Price History
+        st.subheader("Price History")
+        fig1 = px.line(df_prices, labels={"value": "Price ($)", "Date": "Date"})
+        fig1.update_layout(dragmode=False, hovermode="x unified")
+        st.plotly_chart(fig1, use_container_width=True)
+
+        # 3. Fundamental Table
+        st.subheader("Fundamental Data & Risk Metrics")
+        st.table(fund_df.set_index("Ticker"))
+else:
+    st.error("No data found for the entered tickers.")
