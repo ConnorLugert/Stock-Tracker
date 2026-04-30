@@ -54,27 +54,25 @@ if tickers:
                 st.metric(f"{ticker}", f"${end:.2f}", f"${delta:.2f} ({pct:.2f}%)")
     
 # 2. Charts
-    if data_dict:
-        import plotly.express as px
-        
-        st.subheader("Price History")
-        # px.line creates a Plotly chart which we can configure
-        fig1 = px.line(pd.DataFrame(data_dict))
-        # This removes the interactive toolbar (zoom, pan, etc.)
-        fig1.update_layout(dragmode=False) 
-        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
-        
-        # Calculate MA DataFrame
-        ma_df = pd.DataFrame(ma_dict).dropna()
-        
-        st.subheader(f"{ma_window}-Day Moving Average")
-        if not ma_df.empty:
-            fig2 = px.line(ma_df)
-            fig2.update_layout(dragmode=False)
-            st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.warning(f"Not enough data for {ma_window}-day MA. Try a longer time period.")
-            
+# 2. Charts
+if data_dict:
+    import plotly.express as px
+    
+    # --- Existing Price History Chart ---
+    st.subheader("Price History")
+    df_prices = pd.DataFrame(data_dict)
+    fig1 = px.line(df_prices)
+    fig1.update_layout(dragmode=False)
+    st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
+
+    # --- NEW: Normalized Comparison Chart ---
+    st.subheader("Relative Performance (%)")
+    # Divide every row by the first row and multiply by 100
+    normalized_df = (df_prices / df_prices.iloc[0]) * 100
+    
+    fig_norm = px.line(normalized_df, labels={"value": "Normalized Price (Base 100)", "Date": "Date"})
+    fig_norm.update_layout(dragmode=False)
+    st.plotly_chart(fig_norm, use_container_width=True, config={'displayModeBar': False})
         # 3. Fundamental Table
         st.subheader("Fundamental Data")
         st.table(pd.DataFrame(fundamental_data).set_index("Ticker"))
