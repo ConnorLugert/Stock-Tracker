@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 
+st.set_page_config(page_title="Stock Tracker", layout="wide")
 st.title("Multi-Stock Comparison")
 
 # Input tickers
@@ -31,14 +32,16 @@ if tickers:
             data_dict[ticker] = df.Close
             valid_tickers.append(ticker)
             
-            # Extract fundamental info
+            # Extract expanded fundamental info
             info = t.info
             fundamental_data.append({
                 "Ticker": ticker,
                 "Market Cap": info.get("marketCap", "N/A"),
                 "P/E Ratio": info.get("trailingPE", "N/A"),
-                "52W High": info.get("fiftyTwoWeekHigh", "N/A"),
-                "Forward EPS": info.get("forwardEps", "N/A")
+                "Div. Yield (%)": f"{info.get('dividendYield', 0) * 100:.2f}%" if info.get('dividendYield') else "0.00%",
+                "Profit Margin": f"{info.get('profitMargins', 0) * 100:.2f}%" if info.get('profitMargins') else "N/A",
+                "Price to Book": info.get("priceToBook", "N/A"),
+                "52W High": info.get("fiftyTwoWeekHigh", "N/A")
             })
 
     # 1. Metrics (Row Logic)
@@ -47,7 +50,6 @@ if tickers:
         ticker_chunk = valid_tickers[i : i + cols_per_row]
         cols = st.columns(cols_per_row)
         for j, ticker in enumerate(ticker_chunk):
-            # Using the existing data_dict to avoid redundant API calls
             ticker_series = data_dict[ticker]
             start, end = ticker_series.iloc[0], ticker_series.iloc[-1]
             delta = end - start
@@ -60,19 +62,18 @@ if tickers:
         import plotly.express as px
         df_prices = pd.DataFrame(data_dict)
 
+        # --- Normalized Comparison Chart (Moved to Top) ---
+        st.subheader("Relative Performance (%)")
+        normalized_df = (df_prices / df_prices.iloc[0]) * 100
+        fig_norm = px.line(normalized_df, labels={"value": "Normalized Price (Base 100)", "Date": "Date"})
+        fig_norm.update_layout(dragmode=False, hovermode="x unified")
+        st.plotly_chart(fig_norm, use_container_width=True, config={'displayModeBar': False})
+
         # --- Price History Chart ---
         st.subheader("Price History")
         fig1 = px.line(df_prices, labels={"value": "Price ($)", "Date": "Date"})
-        fig1.update_layout(dragmode=False)
+        fig1.update_layout(dragmode=False, hovermode="x unified")
         st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
-
-        # --- Normalized Comparison Chart ---
-        st.subheader("Relative Performance (%)")
-        # Divide every row by the first row and multiply by 100 to show % growth from start
-        normalized_df = (df_prices / df_prices.iloc[0]) * 100
-        fig_norm = px.line(normalized_df, labels={"value": "Normalized Price (Base 100)", "Date": "Date"})
-        fig_norm.update_layout(dragmode=False)
-        st.plotly_chart(fig_norm, use_container_width=True, config={'displayModeBar': False})
 
         # 3. Fundamental Table
         st.subheader("Fundamental Data")
