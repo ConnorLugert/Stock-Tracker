@@ -9,13 +9,11 @@ st.title("Multi-Stock Comparison")
 # --- Function to fetch Risk-Free Rate (3-Month T-Bill) ---
 def get_risk_free_rate():
     try:
-        # ^IRX is the ticker for 13-week (3-month) Treasury Bill yield
         t_bill = yf.Ticker("^IRX")
-        # Get the latest close price (which is the yield %)
         current_yield = t_bill.history(period="1d")['Close'].iloc[-1]
-        return current_yield / 100  # Convert 5.25 to 0.0525
+        return current_yield / 100 
     except:
-        return 0.04  # Fallback to 4% if fetch fails
+        return 0.04 
 
 rf_rate = get_risk_free_rate()
 
@@ -46,30 +44,53 @@ if tickers:
             data_dict[ticker] = df.Close
             valid_tickers.append(ticker)
             
-            # --- Sharpe Ratio Calculation with Risk-Free Rate ---
+            # --- Sharpe Ratio Calculation ---
             daily_returns = df['Close'].pct_change().dropna()
             if not daily_returns.empty:
-                # Annualize the risk-free rate to a daily rate
                 daily_rf = (1 + rf_rate)**(1/252) - 1
                 excess_returns = daily_returns - daily_rf
                 sharpe = (excess_returns.mean() / excess_returns.std()) * np.sqrt(252) if excess_returns.std() != 0 else 0
             else:
                 sharpe = 0
 
-            # Extract expanded fundamental info
+            # Extract info including Sector/Industry
             info = t.info
             fundamental_data.append({
                 "Ticker": ticker,
                 "Sharpe Ratio": round(sharpe, 2),
+                "Sector": info.get("sector", "ETF/Other"),
+                "Industry": info.get("industry", "N/A"),
                 "Market Cap": info.get("marketCap", "N/A"),
                 "P/E Ratio": info.get("trailingPE", "N/A"),
                 "Div. Yield (%)": f"{info.get('dividendYield', 0) * 100:.2f}%" if info.get('dividendYield') else "0.00%",
-                "Profit Margin": f"{info.get('profitMargins', 0) * 100:.2f}%" if info.get('profitMargins') else "N/A",
-                "Price to Book": info.get("priceToBook", "N/A"),
-                "52W High": info.get("fiftyTwoWeekHigh", "N/A")
             })
 
     # 1. Metrics
     cols_per_row = 4
     for i in range(0, len(valid_tickers), cols_per_row):
-        ticker_chunk
+        ticker_chunk = valid_tickers[i : i + cols_per_row]
+        cols = st.columns(cols_per_row)
+        for j, ticker in enumerate(ticker_chunk):
+            ticker_series = data_dict[ticker]
+            start, end = ticker_series.iloc[0], ticker_series.iloc[-1]
+            delta = end - start
+            pct = (delta / start) * 100
+            with cols[j]:
+                st.metric(f"{ticker}", f"${end:.2f}", f"${delta:.2f} ({pct:.2f}%)")
+
+    # 2. Charts
+    if data_dict:
+        import plotly.express as px
+        df_prices = pd.DataFrame(data_dict)
+
+        st.subheader("Relative Performance (%)")
+        normalized_df = (df_prices / df_prices.iloc[0]) * 100
+        fig_norm = px.line(normalized_df, labels={"value": "Normalized Price (Base 100)", "Date": "Date"})
+        fig_norm.update_layout(dragmode=False, hovermode="x unified")
+        st.plotly_chart(fig_norm, use_container_width=True)
+
+        # New: Sector Breakdown Chart
+        st.subheader("Portfolio Diversification")
+        fund_df = pd.DataFrame(fundamental_data)
+        sector_counts = fund_df['Sector'].value_counts().reset_index()
+        fig_pie = px.pie(sector_counts, values='count', names='Sector', hole
