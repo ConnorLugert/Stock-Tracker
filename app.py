@@ -18,8 +18,11 @@ def get_risk_free_rate():
 
 rf_rate = get_risk_free_rate()
 
-# Sidebar / Inputs
-ticker_input = st.text_input("Enter tickers separated by commas:", "AAPL, GOOG, NVDA, META, VTI, VOO, VB").upper()
+# Sidebar / Inputs - UPDATED FOR DIVERSIFICATION
+ticker_input = st.text_input(
+    "Enter tickers separated by commas:", 
+    "AAPL, SCHD, VXUS, BND, GLD, VNQ, VWO"
+).upper()
 tickers = [t.strip() for t in ticker_input.split(",") if t.strip()]
 
 period_map = {
@@ -116,18 +119,19 @@ if tickers:
         fig1.update_layout(dragmode=False, hovermode="x unified")
         st.plotly_chart(fig1, use_container_width=True)
         
-        # --- ADD: Correlation Matrix ---
+        # --- Correlation Matrix ---
         st.subheader("Correlation Matrix (Daily Returns)")
         returns_df = df_prices.pct_change().dropna()
         corr_matrix = returns_df.corr().round(2)
         
-        # RdBu_r gives a nice Blue (positive) to Red (negative) color scale
+        # Using RdBu_r so Blue = Uncorrelated/Negative and Red = High Correlation
         fig_corr = px.imshow(
             corr_matrix, 
             text_auto=True, 
             aspect="auto", 
             color_continuous_scale="RdBu_r",
-            labels=dict(color="Correlation")
+            labels=dict(color="Correlation"),
+            zmin=-1, zmax=1
         )
         st.plotly_chart(fig_corr, use_container_width=True)
 
