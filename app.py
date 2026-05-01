@@ -58,18 +58,21 @@ if tickers:
             st.plotly_chart(fig_price, use_container_width=True)
 
         with tab2:
-            col_a, col_b = st.columns([2, 1])
-            with col_a:
-                st.subheader("Correlation Heatmap")
-                returns = df_prices.pct_change().dropna()
-                corr = returns.corr().round(2)
-                fig_corr = px.imshow(corr, text_auto=True, color_continuous_scale="RdBu_r", zmin=-1, zmax=1)
-                st.plotly_chart(fig_corr, use_container_width=True)
-            with col_b:
-                st.metric("3-Month T-Bill (Risk-Free Rate)", f"{rf_rate*100:.2f}%")
-                st.info("**Sharpe Ratio:** Measures return per unit of risk. Higher is better. It uses the T-Bill rate above as the benchmark.")
+            st.subheader("Correlation Heatmap")
+            returns = df_prices.pct_change().dropna()
+            corr = returns.corr().round(2)
+            fig_corr = px.imshow(corr, text_auto=True, color_continuous_scale="RdBu_r", zmin=-1, zmax=1)
+            st.plotly_chart(fig_corr, use_container_width=True)
+            st.info("**How to read this:** Blue (1.0) means stocks move together. Red (-1.0) means they move in opposite directions. Diversified portfolios look for values closer to 0.")
 
         with tab3:
+            # --- MOVING T-BILL & SHARPE INFO HERE ---
+            col_info1, col_info2 = st.columns([1, 2])
+            with col_info1:
+                st.metric("3-Month T-Bill (Risk-Free Rate)", f"{rf_rate*100:.2f}%")
+            with col_info2:
+                st.info("**Sharpe Ratio:** Measures excess return per unit of volatility. A higher ratio indicates better risk-adjusted performance based on the T-Bill rate.")
+
             st.subheader("Comprehensive Fundamentals")
             fundamental_list = []
             
@@ -84,6 +87,7 @@ if tickers:
                         if not ticker_returns.empty:
                             daily_rf = (1 + rf_rate)**(1/252) - 1
                             excess_returns = ticker_returns - daily_rf
+                            # Annualize the Sharpe Ratio
                             sharpe = (excess_returns.mean() / excess_returns.std()) * np.sqrt(252)
                         else:
                             sharpe = 0
