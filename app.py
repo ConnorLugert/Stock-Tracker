@@ -12,9 +12,9 @@ def get_risk_free_rate():
         # ^IRX is the ticker for 13-week (3-month) Treasury Bill yield
         t_bill = yf.Ticker("^IRX")
         current_yield = t_bill.history(period="1d")['Close'].iloc[-1]
-        return current_yield / 100 
+        return current_yield / 100
     except:
-        return 0.04 
+        return 0.04
 
 rf_rate = get_risk_free_rate()
 
@@ -35,7 +35,7 @@ col_top1, col_top2 = st.columns([2, 1])
 with col_top1:
     selected_period = st.selectbox("Select time range:", list(period_map.keys()))
 with col_top2:
-    st.info(f"**Risk-Free Rate:** {rf_rate*100:.2f}% \n\n (Based on 3-Month Treasury Bills)")
+    st.info(f"**Risk-Free Rate:** {rf_rate*100:.2f}%\n\n(Based on 3-Month Treasury Bills)")
 
 if tickers:
     data_dict = {}
@@ -45,10 +45,11 @@ if tickers:
     for ticker in tickers:
         t = yf.Ticker(ticker)
         df = t.history(period=period_map[selected_period])
+
         if not df.empty:
             data_dict[ticker] = df.Close
             valid_tickers.append(ticker)
-            
+
             # --- Sharpe Ratio Calculation ---
             daily_returns = df['Close'].pct_change().dropna()
             if not daily_returns.empty:
@@ -60,13 +61,23 @@ if tickers:
 
             # Extract info
             info = t.info
+            
+            # --- FIX: Robust Dividend Yield Logic ---
+            raw_yield = info.get('dividendYield') or info.get('yield') or info.get('trailingAnnualDividendYield') or 0
+            div_yield_pct = raw_yield if raw_yield > 1 else raw_yield * 100
+            
+            # --- ADD: Beta Metric ---
+            beta = info.get("beta")
+            beta_display = f"{beta:.2f}" if isinstance(beta, (int, float)) else "N/A"
+
             fundamental_data.append({
                 "Ticker": ticker,
                 "Sharpe Ratio": round(sharpe, 2),
+                "Beta": beta_display,
                 "Sector": info.get("sector", "ETF/Other"),
                 "Market Cap": info.get("marketCap", "N/A"),
                 "P/E Ratio": info.get("trailingPE", "N/A"),
-                "Div. Yield (%)": f"{info.get('dividendYield', 0) * 100:.2f}%" if info.get('dividendYield') else "0.00%",
+                "Div. Yield (%)": f"{div_yield_pct:.2f}%" if div_yield_pct else "0.00%",
             })
 
     # 1. Metrics
@@ -104,9 +115,25 @@ if tickers:
         fig1 = px.line(df_prices, labels={"value": "Price ($)", "Date": "Date"})
         fig1.update_layout(dragmode=False, hovermode="x unified")
         st.plotly_chart(fig1, use_container_width=True)
+        
+        # --- ADD: Correlation Matrix ---
+        st.subheader("Correlation Matrix (Daily Returns)")
+        returns_df = df_prices.pct_change().dropna()
+        corr_matrix = returns_df.corr().round(2)
+        
+        # RdBu_r gives a nice Blue (positive) to Red (negative) color scale
+        fig_corr = px.imshow(
+            corr_matrix, 
+            text_auto=True, 
+            aspect="auto", 
+            color_continuous_scale="RdBu_r",
+            labels=dict(color="Correlation")
+        )
+        st.plotly_chart(fig_corr, use_container_width=True)
 
         # 3. Fundamental Table
         st.subheader("Fundamental Data & Risk Metrics")
         st.table(fund_df.set_index("Ticker"))
+
 else:
     st.error("No data found for the entered tickers.")
