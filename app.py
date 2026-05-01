@@ -4,140 +4,106 @@ import pandas as pd
 import numpy as np
 
 st.set_page_config(page_title="Stock Tracker", layout="wide")
-st.title("Multi-Stock Comparison")
+st.title("📊 Multi-Stock Comparison Pro")
 
-# --- Function to fetch Risk-Free Rate (3-Month T-Bill) ---
-def get_risk_free_rate():
-    try:
-        # ^IRX is the ticker for 13-week (3-month) Treasury Bill yield
-        t_bill = yf.Ticker("^IRX")
-        current_yield = t_bill.history(period="1d")['Close'].iloc[-1]
-        return current_yield / 100
-    except:
-        return 0.04
+# --- Optimized Data Fetching ---
+@st.cache_data(ttl=3600)
+def get_data(tickers, period):
+    # Fetch benchmark (SPY) for Beta calculation
+    all_tickers = list(set(tickers + ["SPY"]))
+    data = yf.download(all_tickers, period=period, interval="1d")['Close']
+    return data
 
-rf_rate = get_risk_free_rate()
+def format_big_number(num):
+    if not isinstance(num, (int, float)): return "N/A"
+    if num >= 1e12: return f"${num/1e12:.2f}T"
+    if num >= 1e9: return f"${num/1e9:.2f}B"
+    if num >= 1e6: return f"${num/1e6:.2f}M"
+    return f"${num:,.2f}"
 
-# Sidebar / Inputs - UPDATED FOR DIVERSIFICATION
-ticker_input = st.text_input(
-    "Enter tickers separated by commas:", 
-    "AAPL, SCHD, VXUS, BND, GLD, VNQ, VWO"
-).upper()
+# Sidebar / Inputs
+ticker_input = st.text_input("Enter tickers separated by commas:", "AAPL, SCHD, VXUS, BND, GLD, VNQ, VWO").upper()
 tickers = [t.strip() for t in ticker_input.split(",") if t.strip()]
 
-period_map = {
-    "1 Week": "5d",
-    "1 Month": "1mo",
-    "1 Year": "1y",
-    "Year to Date": "ytd",
-    "3 Years": "3y",
-    "10 Years": "10y"
-}
-
-col_top1, col_top2 = st.columns([2, 1])
-with col_top1:
-    selected_period = st.selectbox("Select time range:", list(period_map.keys()))
-with col_top2:
-    st.info(f"**Risk-Free Rate:** {rf_rate*100:.2f}%\n\n(Based on 3-Month Treasury Bills)")
+period_map = {"1 Week": "5d", "1 Month": "1mo", "1 Year": "1y", "3 Years": "3y", "10 Years": "10y"}
+selected_period = st.selectbox("Select time range:", list(period_map.keys()), index=2)
 
 if tickers:
-    data_dict = {}
-    valid_tickers = []
+    df_prices = get_data(tickers, period_map[selected_period])
+    
+    # Separate benchmark from user tickers
+    spy_prices = df_prices["SPY"]
+    portfolio_prices = df_prices[[t for t in tickers if t in df_prices.columns]]
+    
+    valid_tickers = portfolio_prices.columns.tolist()
     fundamental_data = []
 
-    for ticker in tickers:
-        t = yf.Ticker(ticker)
-        df = t.history(period=period_map[selected_period])
+    # Calculate Returns for Beta/Sharpe
+    returns = portfolio_prices.pct_change().dropna()
+    spy_returns = spy_prices.pct_change().dropna()
 
-        if not df.empty:
-            data_dict[ticker] = df.Close
-            valid_tickers.append(ticker)
-
-            # --- Sharpe Ratio Calculation ---
-            daily_returns = df['Close'].pct_change().dropna()
-            if not daily_returns.empty:
-                daily_rf = (1 + rf_rate)**(1/252) - 1
-                excess_returns = daily_returns - daily_rf
-                sharpe = (excess_returns.mean() / excess_returns.std()) * np.sqrt(252) if excess_returns.std() != 0 else 0
-            else:
-                sharpe = 0
-
-            # Extract info
-            info = t.info
-            
-            # --- FIX: Robust Dividend Yield Logic ---
-            raw_yield = info.get('dividendYield') or info.get('yield') or info.get('trailingAnnualDividendYield') or 0
-            div_yield_pct = raw_yield if raw_yield > 1 else raw_yield * 100
-            
-            # --- ADD: Beta Metric ---
-            beta = info.get("beta")
-            beta_display = f"{beta:.2f}" if isinstance(beta, (int, float)) else "N/A"
-
-            fundamental_data.append({
-                "Ticker": ticker,
-                "Sharpe Ratio": round(sharpe, 2),
-                "Beta": beta_display,
-                "Sector": info.get("sector", "ETF/Other"),
-                "Market Cap": info.get("marketCap", "N/A"),
-                "P/E Ratio": info.get("trailingPE", "N/A"),
-                "Div. Yield (%)": f"{div_yield_pct:.2f}%" if div_yield_pct else "0.00%",
-            })
-
-    # 1. Metrics
-    cols_per_row = 4
-    for i in range(0, len(valid_tickers), cols_per_row):
-        ticker_chunk = valid_tickers[i : i + cols_per_row]
-        cols = st.columns(cols_per_row)
-        for j, ticker in enumerate(ticker_chunk):
-            ticker_series = data_dict[ticker]
-            start, end = ticker_series.iloc[0], ticker_series.iloc[-1]
-            delta = end - start
-            pct = (delta / start) * 100
-            with cols[j]:
-                st.metric(f"{ticker}", f"${end:.2f}", f"${delta:.2f} ({pct:.2f}%)")
-
-    # 2. Charts
-    if data_dict:
-        import plotly.express as px
-        df_prices = pd.DataFrame(data_dict)
-
-        st.subheader("Relative Performance (%)")
-        normalized_df = (df_prices / df_prices.iloc[0]) * 100
-        fig_norm = px.line(normalized_df, labels={"value": "Normalized Price (Base 100)", "Date": "Date"})
-        fig_norm.update_layout(dragmode=False, hovermode="x unified")
-        st.plotly_chart(fig_norm, use_container_width=True)
-
-        st.subheader("Portfolio Diversification")
-        fund_df = pd.DataFrame(fundamental_data)
-        sector_counts = fund_df['Sector'].value_counts().reset_index()
-        sector_counts.columns = ['Sector', 'Count']
-        fig_pie = px.pie(sector_counts, values='Count', names='Sector', hole=0.4)
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-        st.subheader("Price History")
-        fig1 = px.line(df_prices, labels={"value": "Price ($)", "Date": "Date"})
-        fig1.update_layout(dragmode=False, hovermode="x unified")
-        st.plotly_chart(fig1, use_container_width=True)
+    for ticker in valid_tickers:
+        t_obj = yf.Ticker(ticker)
+        info = t_obj.info
         
-        # --- Correlation Matrix ---
-        st.subheader("Correlation Matrix (Daily Returns)")
-        returns_df = df_prices.pct_change().dropna()
-        corr_matrix = returns_df.corr().round(2)
+        # 1. Improved Dividend Logic
+        # Try dividendYield (usually decimal), then yield (ETF decimal)
+        div_yield = info.get('dividendYield') or info.get('yield')
+        if div_yield is None:
+            # Last ditch effort: calculate from rate / price
+            rate = info.get('trailingAnnualDividendRate', 0)
+            price = info.get('previousClose', 1)
+            div_yield = rate / price if rate else 0
         
-        # Using RdBu_r so Blue = Uncorrelated/Negative and Red = High Correlation
-        fig_corr = px.imshow(
-            corr_matrix, 
-            text_auto=True, 
-            aspect="auto", 
-            color_continuous_scale="RdBu_r",
-            labels=dict(color="Correlation"),
-            zmin=-1, zmax=1
-        )
+        # Ensure it's displayed as a % (e.g. 0.005 -> 0.50%)
+        div_display = f"{div_yield * 100:.2f}%" if div_yield < 1 else f"{div_yield:.2f}%"
+
+        # 2. Manual Beta Calculation (Ticker returns vs SPY returns)
+        try:
+            concat_df = pd.concat([returns[ticker], spy_returns], axis=1).dropna()
+            covariance = concat_df.cov().iloc[0, 1]
+            variance = spy_returns.var()
+            beta_calc = covariance / variance
+            beta_display = round(beta_calc, 2)
+        except:
+            beta_display = "N/A"
+
+        # 3. Max Drawdown
+        peaks = portfolio_prices[ticker].cummax()
+        drawdowns = (portfolio_prices[ticker] - peaks) / peaks
+        max_dd = drawdowns.min()
+
+        fundamental_data.append({
+            "Ticker": ticker,
+            "Beta (vs SPY)": beta_display,
+            "Max Drawdown": f"{max_dd:.2f}%",
+            "Div. Yield": div_display,
+            "Market Cap": format_big_number(info.get("marketCap")),
+            "P/E Ratio": info.get("trailingPE", "N/A"),
+            "Sector": info.get("sector", "ETF/Other")
+        })
+
+    # --- UI Layout ---
+    st.subheader("Performance Metrics")
+    m_cols = st.columns(len(valid_tickers))
+    for idx, ticker in enumerate(valid_tickers):
+        price_series = portfolio_prices[ticker]
+        change = ((price_series.iloc[-1] - price_series.iloc[0]) / price_series.iloc[0]) * 100
+        m_cols[idx].metric(ticker, f"${price_series.iloc[-1]:.2f}", f"{change:.2f}%")
+
+    import plotly.express as px
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Relative Performance")
+        norm = (portfolio_prices / portfolio_prices.iloc[0]) * 100
+        st.line_chart(norm)
+        
+    with col2:
+        st.subheader("Correlation Heatmap")
+        corr = returns.corr()
+        fig_corr = px.imshow(corr, text_auto=True, color_continuous_scale='RdBu_r', zmin=-1, zmax=1)
         st.plotly_chart(fig_corr, use_container_width=True)
 
-        # 3. Fundamental Table
-        st.subheader("Fundamental Data & Risk Metrics")
-        st.table(fund_df.set_index("Ticker"))
-
-else:
-    st.error("No data found for the entered tickers.")
+    st.subheader("Fundamental Analysis & Risk")
+    st.dataframe(pd.DataFrame(fundamental_data).set_index("Ticker"), use_container_width=True)
