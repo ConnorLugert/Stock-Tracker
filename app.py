@@ -21,7 +21,7 @@ rf_rate = get_risk_free_rate()
 # Sidebar / Inputs - UPDATED FOR DIVERSIFICATION
 ticker_input = st.text_input(
     "Enter tickers separated by commas:", 
-    "AAPL, SCHD, VXUS, BND, GLD, VNQ, VWO"
+    "AAPL, TGT, BAC, PFE, WMT, VZ, TSLA, LMT"
 ).upper()
 tickers = [t.strip() for t in ticker_input.split(",") if t.strip()]
 
