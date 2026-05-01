@@ -9,20 +9,23 @@ st.title("Multi-Stock Comparison")
 # --- Function to fetch Risk-Free Rate (3-Month T-Bill) ---
 def get_risk_free_rate():
     try:
-        # ^IRX is the ticker for 13-week (3-month) Treasury Bill yield
         t_bill = yf.Ticker("^IRX")
         current_yield = t_bill.history(period="1d")['Close'].iloc[-1]
         return current_yield / 100
     except:
         return 0.04
 
+# --- Helper for Market Cap Formatting ---
+def format_market_cap(val):
+    if val == "N/A" or not isinstance(val, (int, float)): return "N/A"
+    if val >= 1e12: return f"${val/1e12:.2f}T"
+    if val >= 1e9: return f"${val/1e9:.2f}B"
+    return f"${val/1e6:.2f}M"
+
 rf_rate = get_risk_free_rate()
 
-# Sidebar / Inputs - UPDATED FOR DIVERSIFICATION
-ticker_input = st.text_input(
-    "Enter tickers separated by commas:", 
-    "AAPL, TGT, BAC, PFE, WMT, VZ, TSLA, LMT"
-).upper()
+# Sidebar / Inputs
+ticker_input = st.text_input("Enter tickers separated by commas:", "AAPL, TGT, BAC, PFE, WMT, VZ, TSLA, LMT").upper()
 tickers = [t.strip() for t in ticker_input.split(",") if t.strip()]
 
 period_map = {
@@ -65,11 +68,22 @@ if tickers:
             # Extract info
             info = t.info
             
-            # --- FIX: Robust Dividend Yield Logic ---
-            raw_yield = info.get('dividendYield') or info.get('yield') or info.get('trailingAnnualDividendYield') or 0
-            div_yield_pct = raw_yield if raw_yield > 1 else raw_yield * 100
+            # --- FIXED: Robust Dividend Yield Logic ---
+            # Calculates yield manually: (Dividend Rate / Current Price)
+            current_price = info.get('previousClose') or info.get('regularMarketPrice') or 1
+            div_rate = info.get('trailingAnnualDividendRate') or info.get('dividendRate') or 0
             
-            # --- ADD: Beta Metric ---
+            # Use manual calc if it's a common stock, or fallback to yield if manual is 0
+            manual_yield = (div_rate / current_price) * 100
+            info_yield = (info.get('dividendYield') or info.get('yield') or 0)
+            
+            # Logic to handle if info_yield is already a percentage (like 3.5) vs decimal (0.035)
+            if info_yield < 1 and info_yield > 0:
+                info_yield = info_yield * 100
+                
+            final_yield = manual_yield if manual_yield > 0 else info_yield
+
+            # --- Beta Metric ---
             beta = info.get("beta")
             beta_display = f"{beta:.2f}" if isinstance(beta, (int, float)) else "N/A"
 
@@ -78,9 +92,9 @@ if tickers:
                 "Sharpe Ratio": round(sharpe, 2),
                 "Beta": beta_display,
                 "Sector": info.get("sector", "ETF/Other"),
-                "Market Cap": info.get("marketCap", "N/A"),
-                "P/E Ratio": info.get("trailingPE", "N/A"),
-                "Div. Yield (%)": f"{div_yield_pct:.2f}%" if div_yield_pct else "0.00%",
+                "Market Cap": format_market_cap(info.get("marketCap")),
+                "P/E Ratio": round(info.get("trailingPE", 0), 2) if info.get("trailingPE") else "N/A",
+                "Div. Yield (%)": f"{final_yield:.2f}%"
             })
 
     # 1. Metrics
@@ -123,8 +137,6 @@ if tickers:
         st.subheader("Correlation Matrix (Daily Returns)")
         returns_df = df_prices.pct_change().dropna()
         corr_matrix = returns_df.corr().round(2)
-        
-        # Using RdBu_r so Blue = Uncorrelated/Negative and Red = High Correlation
         fig_corr = px.imshow(
             corr_matrix, 
             text_auto=True, 
