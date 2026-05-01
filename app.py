@@ -5,7 +5,7 @@ import numpy as np
 import plotly.express as px
 
 st.set_page_config(page_title="Stock Tracker", layout="wide")
-st.title("📊 Multi-Stock Comparison Pro")
+st.title("📊 Multi-Stock Comparison")
 
 # --- 1. Functions for Data & Rates ---
 
